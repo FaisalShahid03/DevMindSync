@@ -3,6 +3,8 @@ from flask import Flask, request, jsonify, session
 from flask_cors import CORS
 from dotenv import load_dotenv
 import requests
+from datetime import datetime
+import uuid
 
 load_dotenv()
 
@@ -15,7 +17,7 @@ app.secret_key = os.urandom(24)
 # GitHub OAuth configuration
 GITHUB_CLIENT_ID = os.getenv('GITHUB_CLIENT_ID')
 GITHUB_CLIENT_SECRET = os.getenv('GITHUB_CLIENT_SECRET')
-GITHUB_REDIRECT_URI = 'http://localhost:5000/api/auth/github/callback'
+GITHUB_REDIRECT_URI = 'http://192.168.18.143:5000/api/auth/github/callback'
 
 @app.route('/api/auth/github', methods=['GET'])
 def github_login():
@@ -65,6 +67,33 @@ def get_user():
 def logout():
     session.pop('user', None)
     return jsonify({'message': 'Logged out successfully'})
+
+# In-memory storage for check-ins (replace with database in production)
+check_ins = []
+
+@app.route('/api/checkins', methods=['POST'])
+def create_checkin():
+    if 'user' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    data = request.json
+    check_in = {
+        'id': str(uuid.uuid4()),
+        'userId': session['user']['id'],
+        'mood': data['mood'],
+        'activities': data['activities'],
+        'createdAt': datetime.utcnow().isoformat()
+    }
+    check_ins.append(check_in)
+    return jsonify(check_in)
+
+@app.route('/api/checkins', methods=['GET'])
+def get_checkins():
+    if 'user' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    user_checkins = [c for c in check_ins if c['userId'] == session['user']['id']]
+    return jsonify(user_checkins)
 
 if __name__ == '__main__':
     app.run(debug=True)
